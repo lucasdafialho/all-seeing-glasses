@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  assistive-glasses:
+    build: .
+    container_name: assistive-glasses-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    environment:
+      - YOLO_MODEL=yolov8n.pt
+      - CONFIDENCE_THRESHOLD=0.35
+      - TTS_ENGINE=pyttsx3
+      - MIN_DETECTION_INTERVAL=2.0
+    restart: unless-stopped
+    networks:
+      - assistive-network
+
+networks:
+  assistive-network:
+    driver: bridge

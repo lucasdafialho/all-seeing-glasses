@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     
     min_detection_interval: float = 1.0
     
-    max_detections_per_frame: int = 12
+    max_detections_per_frame: int = 2
     enable_glasses_detection: bool = True
     
     proximity_thresholds: dict = {

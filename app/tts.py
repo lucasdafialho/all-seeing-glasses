@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 import threading
 import time
+import io
 
 try:
     from gtts import gTTS
@@ -22,9 +23,6 @@ logger = logging.getLogger(__name__)
 
 class ImprovedTTS:
     def __init__(self):
-        """
-        Sistema TTS melhorado com múltiplas opções de alta qualidade.
-        """
         self.gtts_available = GTTS_AVAILABLE
         self.pygame_initialized = False
         self.piper_available = False
@@ -36,7 +34,6 @@ class ImprovedTTS:
         logger.info("TTS melhorado inicializado")
     
     def _initialize_pygame(self):
-        """Inicializa pygame para reprodução de áudio"""
         if not self.gtts_available:
             return
             
@@ -49,7 +46,6 @@ class ImprovedTTS:
             self.pygame_initialized = False
     
     def _check_piper(self):
-        """Verifica se Piper está disponível"""
         if shutil.which("piper"):
             model_path = Path("models/pt_BR-faber-medium.onnx")
             if model_path.exists():
@@ -59,9 +55,6 @@ class ImprovedTTS:
                 logger.info("Piper encontrado, mas modelo PT-BR não disponível")
     
     def _speak_with_gtts(self, text: str) -> bool:
-        """
-        Usa Google TTS (melhor qualidade).
-        """
         if not self.gtts_available or not self.pygame_initialized:
             return False
         
@@ -94,9 +87,6 @@ class ImprovedTTS:
             return False
     
     def _speak_with_piper(self, text: str) -> bool:
-        """
-        Usa Piper TTS (alta qualidade offline).
-        """
         if not self.piper_available:
             return False
         
@@ -143,9 +133,6 @@ class ImprovedTTS:
             return False
     
     def _speak_with_espeak_ng(self, text: str) -> bool:
-        """
-        Fallback com espeak-ng (melhor que espeak normal).
-        """
         engines = ["espeak-ng", "espeak"]
         
         for engine in engines:
@@ -164,9 +151,6 @@ class ImprovedTTS:
         return False
     
     def speak_direct(self, text: str) -> bool:
-        """
-        Fala texto usando a melhor opção disponível.
-        """
         if not text:
             return False
         
@@ -192,20 +176,59 @@ class ImprovedTTS:
         
         logger.error("Todas as opções de TTS falharam")
         return False
+
+    def generate_audio(self, text: str) -> Optional[bytes]:
+        if not text:
+            return None
+        
+        text = text.strip()
+        if not text:
+            return None
+
+        logger.info(f"Gerando áudio para: {text}")
+
+        if self.gtts_available:
+            try:
+                tts = gTTS(text=text, lang='pt-br', slow=False)
+                audio_fp = io.BytesIO()
+                tts.write_to_fp(audio_fp)
+                audio_fp.seek(0)
+                return audio_fp.read()
+            except Exception as e:
+                logger.error(f"Erro ao gerar áudio com gTTS: {e}")
+
+        if self.piper_available:
+            try:
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=True) as tmp_file:
+                    audio_path = tmp_file.name
+                
+                model_path = Path("models/pt_BR-faber-medium.onnx")
+                cmd = ["piper", "--model", str(model_path), "--output_file", audio_path]
+                
+                process = subprocess.Popen(cmd, stdin=subprocess.PIPE, text=True)
+                process.communicate(input=text, timeout=10)
+
+                if process.returncode == 0:
+                    with open(audio_path, 'rb') as f:
+                        audio_data = f.read()
+                    os.unlink(audio_path)
+                    return audio_data
+                else:
+                     logger.error("Piper falhou ao gerar áudio.")
+
+            except Exception as e:
+                logger.error(f"Erro ao gerar áudio com Piper: {e}")
+        
+        logger.error("Todas as opções de geração de áudio falharam.")
+        return None
     
     def is_available(self) -> bool:
-        """
-        Verifica se pelo menos uma opção TTS está disponível.
-        """
         return (self.gtts_available or 
                 self.piper_available or 
                 shutil.which("espeak-ng") or 
                 shutil.which("espeak"))
     
     def get_status(self) -> dict:
-        """
-        Retorna status das opções TTS disponíveis.
-        """
         return {
             "google_tts": self.gtts_available and self.pygame_initialized,
             "piper_tts": self.piper_available,
@@ -218,9 +241,6 @@ class ImprovedTTS:
 _improved_tts = None
 
 def get_improved_tts():
-    """
-    Retorna instância do TTS melhorado.
-    """
     global _improved_tts
     if _improved_tts is None:
         _improved_tts = ImprovedTTS()

@@ -48,9 +48,6 @@ tts = None
 
 @app.on_event("startup")
 async def startup_event():
-    """
-    Inicializa os componentes na inicialização da aplicação.
-    """
     global detector, tts
     
     logger.info(f"Iniciando {settings.app_name} v{settings.version}")
@@ -72,9 +69,6 @@ async def startup_event():
 
 @app.get("/", response_model=dict)
 async def root():
-    """
-    Endpoint raiz com informações da API.
-    """
     return {
         "name": settings.app_name,
         "version": settings.version,
@@ -88,9 +82,6 @@ async def root():
 
 @app.get("/healthz", response_model=HealthCheckResponse)
 async def health_check():
-    """
-    Verifica o status de saúde da aplicação.
-    """
     model_loaded = detector is not None and detector.model is not None
     tts_available = tts is not None and tts.is_available()
     
@@ -104,9 +95,6 @@ async def health_check():
 
 @app.post("/detect", response_model=DetectionResponse)
 async def detect_objects(request: ImageRequest):
-    """
-    Detecta objetos em uma imagem enviada em base64.
-    """
     if detector is None:
         raise HTTPException(status_code=503, detail="Detector não disponível")
     
@@ -133,8 +121,7 @@ async def detect_objects(request: ImageRequest):
         
         audio_base64 = None
         if request.return_audio and tts and tts.is_available():
-            tts.speak_direct(description)
-            audio_data = None
+            audio_data = tts.generate_audio(description)
             if audio_data:
                 audio_base64 = audio_to_base64(audio_data)
         
@@ -158,9 +145,6 @@ async def detect_objects(request: ImageRequest):
 
 @app.post("/detect/file", response_model=DetectionResponse)
 async def detect_objects_file(file: UploadFile = File(...)):
-    """
-    Detecta objetos em uma imagem enviada como arquivo.
-    """
     if detector is None:
         raise HTTPException(status_code=503, detail="Detector não disponível")
     
@@ -205,9 +189,6 @@ manager = ConnectionManager()
 
 @app.websocket("/stream")
 async def websocket_stream(websocket: WebSocket):
-    """
-    WebSocket para streaming de vídeo em tempo real.
-    """
     await manager.connect(websocket)
     session_id = f"ws_{id(websocket)}"
     
@@ -281,8 +262,7 @@ async def websocket_stream(websocket: WebSocket):
                         if filtered_detections and config.get("return_audio"):
                             description = format_detection_description(filtered_detections)
                             if tts and tts.is_available():
-                                tts.speak_direct(description)
-                                audio_data = None
+                                audio_data = tts.generate_audio(description)
                                 if audio_data:
                                     response_data["audio"] = audio_to_base64(audio_data)
                                     response_data["description"] = description
@@ -332,9 +312,6 @@ async def websocket_stream(websocket: WebSocket):
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    """
-    Handler customizado para exceções HTTP.
-    """
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
@@ -347,9 +324,6 @@ async def http_exception_handler(request, exc):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    """
-    Handler para exceções gerais não tratadas.
-    """
     logger.error(f"Erro não tratado: {exc}")
     return JSONResponse(
         status_code=500,

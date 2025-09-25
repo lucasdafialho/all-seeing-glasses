@@ -1,4 +1,4 @@
-# Sistema de Óculos Assistivos para Pessoas Cegas
+# All Seeing Glasses
 
 Sistema completo de detecção de objetos em tempo real usando YOLO e Text-to-Speech para auxiliar pessoas com deficiência visual.
 
